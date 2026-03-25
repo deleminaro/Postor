@@ -48,7 +48,7 @@ const formatDuration = (ms: number): string => {
 export const searchTracks = async (query: string): Promise<Track[]> => {
   try {
     const response = await fetch(
-      `/api/soundcloud/search?q=${encodeURIComponent(query)}&limit=10`
+      `/api/soundcloud/search?q=${encodeURIComponent(query)}&limit=50`
     );
     if (!response.ok) throw new Error(`SoundCloud search failed: ${response.status}`);
     const data = await response.json();

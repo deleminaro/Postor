@@ -53,7 +53,7 @@ export const youtubeToTrack = (ytResult: YouTubeSearchResult): Track => {
 export const searchTracks = async (query: string): Promise<Track[]> => {
   try {
     const response = await fetch(
-      `/api/youtube/search?q=${encodeURIComponent(query)}&limit=10`
+      `/api/youtube/search?q=${encodeURIComponent(query)}&limit=50`
     );
     if (!response.ok) throw new Error(`YouTube search failed: ${response.status}`);
     const data = await response.json();

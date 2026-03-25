@@ -189,7 +189,7 @@ async function startServer() {
   });
 
   app.get('/api/spotify/search', async (req, res) => {
-    const { q, limit = 10 } = req.query;
+    const { q, limit = 50 } = req.query;
     const accessToken = req.cookies.spotify_access_token;
 
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
@@ -398,7 +398,7 @@ async function startServer() {
 
   // SoundCloud Proxy Routes
   app.get('/api/soundcloud/search', async (req, res) => {
-    const { q, limit = 10 } = req.query;
+    const { q, limit = 50 } = req.query;
     try {
       console.log(`[SoundCloud] Searching for: ${q}`);
       // Try /search/tracks first (standard for API v2)
@@ -432,7 +432,7 @@ async function startServer() {
   });
 
   app.get('/api/soundcloud/charts', async (req, res) => {
-    const { limit = 10 } = req.query;
+    const { limit = 50 } = req.query;
     try {
       const genres = [
         '', // No genre (all music)
@@ -516,7 +516,7 @@ async function startServer() {
 
   // YouTube Proxy Routes
   app.get('/api/youtube/search', async (req, res) => {
-    const { q, limit = 10 } = req.query;
+    const { q, limit = 50 } = req.query;
     if (!YOUTUBE_API_KEY) {
       return res.status(500).json({ error: 'YouTube API key not configured' });
     }

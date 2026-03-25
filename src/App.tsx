@@ -582,7 +582,10 @@ const PlayerScreen: React.FC<{
   onOpenEqualizer: () => void;
   onOpenQueue: () => void;
   onAddToQueue: () => void;
-}> = ({ track, isPlaying, setIsPlaying, isShuffle, setIsShuffle, isRepeat, setIsRepeat, isLiked, onLike, onAddToPlaylist, onAddToQueue, onNext, onPrev, currentTime, duration, isBuffering, onSeek, setDuration, volume, setVolume, onOpenEqualizer, onOpenQueue }) => {
+  queue: Track[];
+  currentContext: Track[];
+  trendingTracks: Track[];
+}> = ({ track, isPlaying, setIsPlaying, isShuffle, setIsShuffle, isRepeat, setIsRepeat, isLiked, onLike, onAddToPlaylist, onAddToQueue, onNext, onPrev, currentTime, duration, isBuffering, onSeek, setDuration, volume, setVolume, onOpenEqualizer, onOpenQueue, queue, currentContext, trendingTracks }) => {
   const playerRef = useRef<any>(null);
   const [isSeeking, setIsSeeking] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
@@ -592,6 +595,16 @@ const PlayerScreen: React.FC<{
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const Player = ReactPlayer as any;
+
+  const nextTrack = useMemo(() => {
+    if (queue.length > 0) return queue[0];
+    const tracks = currentContext.length > 0 ? currentContext : trendingTracks;
+    if (tracks.length === 0) return null;
+    const currentIndex = tracks.findIndex(t => t.id === track.id);
+    if (currentIndex === -1) return tracks[0];
+    const nextIndex = (currentIndex + 1) % tracks.length;
+    return tracks[nextIndex];
+  }, [queue, currentContext, trendingTracks, track.id]);
 
   const lyricsLines = useMemo(() => lyrics ? lyrics.split('\n').filter(l => l.trim().length > 0) : [], [lyrics]);
   const activeLineIdx = useMemo(() => {
@@ -721,6 +734,19 @@ const PlayerScreen: React.FC<{
 
         {/* Track Info & Controls Panel */}
         <div className="w-full max-w-[500px] glass-panel p-8 md:p-10 space-y-8">
+          {nextTrack && (
+            <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 rounded-2xl border border-primary/20 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0">
+                <img src={nextTrack.coverUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-primary/60">Next Up</p>
+                <p className="text-[10px] font-bold text-on-surface truncate uppercase tracking-tight">{nextTrack.title}</p>
+              </div>
+              <ListPlus size={14} className="text-primary" />
+            </div>
+          )}
+
           <div className="flex justify-between items-start gap-4">
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl md:text-3xl font-black text-on-surface uppercase tracking-tighter leading-tight truncate">
@@ -1054,6 +1080,9 @@ const PlaylistView = ({
 
 const QueueView = ({ 
   queue, 
+  currentTrack,
+  currentContext,
+  trendingTracks,
   onBack, 
   onPlay, 
   onRemove, 
@@ -1061,12 +1090,24 @@ const QueueView = ({
   onClear
 }: { 
   queue: Track[], 
+  currentTrack: Track | null,
+  currentContext: Track[],
+  trendingTracks: Track[],
   onBack: () => void, 
   onPlay: (t: Track, index: number) => void,
   onRemove: (trackId: string, index: number) => void,
   onReorder: (start: number, end: number) => void,
   onClear: () => void
 }) => {
+  const contextTracks = useMemo(() => {
+    const tracks = currentContext.length > 0 ? currentContext : trendingTracks;
+    if (!currentTrack) return tracks;
+    const currentIndex = tracks.findIndex(t => t.id === currentTrack.id);
+    if (currentIndex === -1) return tracks;
+    // Return tracks after the current one
+    return tracks.slice(currentIndex + 1);
+  }, [currentContext, trendingTracks, currentTrack]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -1076,7 +1117,11 @@ const QueueView = ({
     >
       <div className="flex flex-col md:flex-row gap-8 items-end border-b border-white/5 pb-12">
         <div className="w-48 h-48 sm:w-64 sm:h-64 rounded-[40px] border border-white/10 shrink-0 overflow-hidden bg-white/5 flex items-center justify-center shadow-2xl">
-          <ListPlus size={64} className="text-primary/20" />
+          {currentTrack ? (
+            <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <ListPlus size={64} className="text-primary/20" />
+          )}
         </div>
         <div className="flex-1 space-y-6">
           <div className="space-y-2">
@@ -1101,7 +1146,28 @@ const QueueView = ({
         </div>
       </div>
 
+      {currentTrack && (
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface/40">Now Playing</h4>
+          <div className="flex items-center gap-4 p-4 bg-primary/10 border border-primary/20 rounded-3xl">
+            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
+              <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-black text-sm uppercase tracking-tight text-on-surface truncate">{currentTrack.title}</h4>
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate">{currentTrack.artist}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-4 bg-primary rounded-full animate-pulse"></div>
+              <div className="w-1 h-6 bg-primary rounded-full animate-pulse delay-75"></div>
+              <div className="w-1 h-3 bg-primary rounded-full animate-pulse delay-150"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
+        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface/40">Next In Queue</h4>
         {queue.length > 0 ? (
           <div className="grid grid-cols-1 gap-2">
             {queue.map((track, index) => (
@@ -1150,6 +1216,29 @@ const QueueView = ({
           </div>
         )}
       </div>
+
+      {contextTracks.length > 0 && (
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-on-surface/40">Next From Context</h4>
+          <div className="grid grid-cols-1 gap-2">
+            {contextTracks.slice(0, 10).map((track, index) => (
+              <div 
+                key={`${track.id}-context-${index}`}
+                className="group flex items-center gap-4 p-4 bg-white/5 border border-white/5 rounded-3xl hover:bg-white/10 hover:border-white/10 transition-all opacity-60 hover:opacity-100"
+              >
+                <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
+                  <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-sm uppercase tracking-tight text-on-surface truncate">{track.title}</h4>
+                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate">{track.artist}</p>
+                </div>
+                <div className="text-[10px] font-bold text-on-surface/40">{track.duration}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -1621,6 +1710,9 @@ export default function App() {
   useEffect(() => {
     // Set crossOrigin to allow Web Audio API processing
     audio.crossOrigin = "anonymous";
+    audio.preload = "auto";
+    // @ts-ignore
+    audio.playsInline = true;
 
     const loadTrending = async () => {
       const tracks = await soundcloud.getTrendingTracks();
@@ -1891,8 +1983,7 @@ export default function App() {
     if (isShuffle) {
       nextIndex = Math.floor(Math.random() * tracks.length);
     } else {
-      // User says next plays old, so we go backwards in the list for "next"
-      nextIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+      nextIndex = (currentIndex + 1) % tracks.length;
     }
     handlePlay(tracks[nextIndex]);
   };
@@ -1906,11 +1997,52 @@ export default function App() {
     if (isShuffle) {
       prevIndex = Math.floor(Math.random() * tracks.length);
     } else {
-      // User says prev plays new, so we go forwards in the list for "prev"
-      prevIndex = (currentIndex + 1) % tracks.length;
+      prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
     }
     handlePlay(tracks[prevIndex]);
   };
+
+  // Media Session API for background playback and lock screen controls
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentTrack) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: 'POSTOR',
+        artwork: [
+          { src: currentTrack.coverUrl, sizes: '96x96', type: 'image/png' },
+          { src: currentTrack.coverUrl, sizes: '128x128', type: 'image/png' },
+          { src: currentTrack.coverUrl, sizes: '192x192', type: 'image/png' },
+          { src: currentTrack.coverUrl, sizes: '256x256', type: 'image/png' },
+          { src: currentTrack.coverUrl, sizes: '384x384', type: 'image/png' },
+          { src: currentTrack.coverUrl, sizes: '512x512', type: 'image/png' },
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+      navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+      navigator.mediaSession.setActionHandler('seekbackward', () => {
+        const newTime = Math.max(0, audio.currentTime - 10);
+        audio.currentTime = newTime;
+      });
+      navigator.mediaSession.setActionHandler('seekforward', () => {
+        const newTime = Math.min(audio.duration, audio.currentTime + 10);
+        audio.currentTime = newTime;
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        setIsPlaying(false);
+        audio.currentTime = 0;
+      });
+    }
+  }, [currentTrack, handleNext, handlePrev]);
+
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
 
   const toggleLike = (track: Track) => {
     setLikedTracks(prev => {
@@ -2095,11 +2227,17 @@ export default function App() {
               setVolume={setVolume}
               onOpenEqualizer={() => setIsEqualizerOpen(true)}
               onOpenQueue={() => setScreen('queue')}
+              queue={queue}
+              currentContext={currentContext}
+              trendingTracks={trendingTracks}
             />
           )}
           {screen === 'queue' && (
             <QueueView
               queue={queue}
+              currentTrack={currentTrack}
+              currentContext={currentContext}
+              trendingTracks={trendingTracks}
               onBack={() => setScreen('player')}
               onPlay={(track, index) => {
                 const newQueue = queue.filter((_, i) => i !== index);
